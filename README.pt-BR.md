@@ -108,7 +108,7 @@ docker compose exec backend python seed.py
 # frontend: http://localhost:5173 | backend: http://localhost:8000
 ```
 
-No dashboard, o botão **"Rodar ETL + Modelos ML"** roda o ETL e os dois modelos e preenche
+No dashboard, o botão **"Rodar ETL + Modelos"** roda o ETL e os dois modelos e preenche
 KPIs, telemetria, predições e alertas.
 
 ## Testes e avaliação

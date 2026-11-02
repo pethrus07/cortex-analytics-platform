@@ -108,7 +108,7 @@ docker compose exec backend python seed.py
 # frontend: http://localhost:5173 | backend: http://localhost:8000
 ```
 
-In the dashboard, the **"Rodar ETL + Modelos ML"** button (Portuguese UI: "Run ETL + ML
+In the dashboard, the **"Rodar ETL + Modelos"** button (Portuguese UI: "Run ETL +
 models") runs the ETL and both models and fills KPIs, telemetry, predictions and alerts.
 
 ## Tests and evaluation
