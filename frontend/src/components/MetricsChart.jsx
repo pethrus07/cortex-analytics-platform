@@ -2,7 +2,7 @@
  * A série de telemetria: temperatura, vibração e pressão num gráfico só.
  * Recebe os eventos crus da API e apenas os prepara para o Recharts — não
  * busca nada e não agrega nada. Atenção ao que o eixo X realmente é: está no
- * comentário do `data` abaixo e na seção 7 de docs/ARQUITETURA.md.
+ * comentário do `data` abaixo.
  */
 import {
   CartesianGrid,

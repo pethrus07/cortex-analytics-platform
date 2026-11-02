@@ -1,188 +1,169 @@
+English | [Português](README.pt-BR.md)
+
 # Cortex Analytics Platform
 
-![status](https://img.shields.io/badge/status-em%20desenvolvimento-blue)
+![status](https://img.shields.io/badge/status-completed%20(technical%20challenge%2C%202026--06)-lightgrey)
 ![backend](https://img.shields.io/badge/backend-FastAPI-009688)
 ![frontend](https://img.shields.io/badge/frontend-React-61DAFB)
 ![ml](https://img.shields.io/badge/ML-scikit--learn-F7931E)
 ![license](https://img.shields.io/badge/license-MIT-green)
 
-> Plataforma analítica full-stack para **monitoramento operacional**, **pipeline ETL**, **dashboards interativos** e **inteligência preditiva** (detecção de anomalias e predição de falhas).
+A full-stack analytics platform built as a technical challenge for a developer position.
+It ingests industrial asset telemetry (temperature, vibration, pressure, runtime hours),
+runs a Pandas ETL and two scikit-learn models (anomaly detection and failure risk), and
+shows everything in a React dashboard.
 
----
+## Status
 
-## 1. Visão Geral e a Dor
+**Completed (technical challenge, 2026-06).** Not continued after delivery. In 2026-11 the
+failure risk model got a holdout evaluation, an evaluation script and tests.
 
-Operações industriais e de infraestrutura geram um volume contínuo de telemetria — temperatura, vibração, pressão, tempo de operação — mas esses dados costumam ficar **espalhados, sem monitoramento centralizado e sem capacidade preditiva**. O resultado é o pior cenário possível: a falha só é percebida quando o equipamento já parou.
+## The problem
 
-**O que está sendo resolvido?**
-A falta de uma camada única que ingere telemetria bruta, calcula métricas operacionais e antecipa falhas antes que elas aconteçam — saindo da manutenção reativa para a **manutenção preditiva**.
+Machine telemetry is often scattered, with no central monitoring and no predictive layer.
+Failures are only noticed once the equipment has stopped. The challenge asked for a single
+layer that ingests telemetry, computes operational metrics, raises alerts and estimates
+failure risk per asset.
 
-**Quem sofre com esse problema?**
-Times de operação, manutenção e confiabilidade que dependem de planilhas isoladas e inspeção manual, sem visão consolidada de saúde dos ativos nem alertas automáticos.
+## Stack
 
-**Por que isso importa para produto/negócio?**
-Downtime não planejado é caro. Cada hora de parada de um ativo crítico significa perda de produção e custo de emergência. Antecipar a falha com horas/dias de antecedência transforma uma parada catastrófica em uma manutenção programada.
-
----
-
-## 2. Arquitetura e Decisões Técnicas
-
-| Camada | Escolha | Por que escolhi isso? | Alternativa considerada | Nota de impacto |
-|---|---|---|---|---|
-| **Front-end** | React + Vite + TailwindCSS + Recharts | Ecossistema maduro, build instantâneo com Vite e Recharts nativo para séries temporais sem reinventar gráficos | Vue / Streamlit | Time-to-market e UX de dashboard |
-| **Back-end** | FastAPI (Python) | Mantém front e ML na mesma linguagem do pipeline de dados; tipagem com Pydantic e docs OpenAPI automáticas | Flask, Node.js | Integração direta com Pandas/sklearn |
-| **Banco de dados** | PostgreSQL (prod) / SQLite (dev) | Postgres para transações e queries analíticas; SQLite como fallback para o avaliador rodar em segundos sem Docker | MongoDB, DynamoDB | Consistência + zero-friction no dev |
-| **ETL / Dados** | Pandas | Padrão de fato para transformação tabular; agregações expressivas em poucas linhas | Spark, Polars | Simplicidade no volume atual |
-| **API / Integração** | REST (OpenAPI) | Contrato claro, fácil de consumir pelo front e documentação interativa via `/docs` | GraphQL, gRPC | Curva de adoção baixa |
-| **IA / Dados** | scikit-learn (Isolation Forest + Random Forest) | Isolation Forest não exige rótulos (anomalia é rara); Random Forest é robusto e entrega *feature importance* explicável ao negócio | TensorFlow/LSTM | Custo, explicabilidade, baixo overfitting |
-| **Infra** | Docker + docker-compose | Sobe banco, API e front com um comando; reproduzível | Setup manual | Onboarding e deploy |
-
-**Fluxo de dados:**
+| Layer | Choice | Why |
+|---|---|---|
+| Front end | React + Vite + TailwindCSS + Recharts | fast build, time series charts out of the box |
+| Back end | FastAPI (Python) | same language as the data pipeline; OpenAPI at `/docs` |
+| Database | PostgreSQL (docker-compose) or SQLite (local default) | SQLite runs without Docker |
+| ETL | Pandas | per-asset aggregation in one pass |
+| ML | scikit-learn: Isolation Forest + Random Forest | anomalies without labels; risk with feature importance |
+| Infra | Docker + docker-compose | database, API and front end with one command |
 
 ```
-Raw Events  ──►  ETL (Pandas)  ──►  Database  ──►  Analytics / ML  ──►  Dashboard
- (sensores)      transform+load     metrics/alerts   predictions         KPIs/gráficos
+raw events ──► ETL (Pandas) ──► database ──► ML models ──► dashboard
+ (sensors)     aggregate, load   metrics      anomaly, risk  KPIs and charts
+                                 and alerts
 ```
 
----
+## Failure risk model evaluation
 
-## 3. Demonstração
+**The data is synthetic.** `backend/seed.py` generates 5 assets with 60 readings each
+(seed 42). Three assets are healthy and two degrade over time. A reading is labeled `down`
+by a fixed rule: temperature above 92 or vibration above 9. That gives 300 readings, 23 of
+them failures (7.7%), all in two assets.
 
-O fluxo principal cabe em 15 segundos: subir o backend com dados de seed, abrir o dashboard, clicar em **"Rodar ETL + Modelos ML"** e ver os KPIs, a telemetria e o painel de risco/anomalia preenchidos.
+The first version trained and scored on the same rows. Now the model is evaluated on a
+stratified 75/25 holdout with a fixed seed, and only then retrained on all data to score
+the assets. The response of `POST /api/ml/failures/run` includes the evaluation.
 
-- **Demo / Deploy:** _[adicionar link do Vercel (front) + Render (API) após o deploy]_
-- **Docs interativas da API:** `http://localhost:8000/docs`
+Output of `python avaliar.py`:
 
----
+| Evaluation | test n (failures) | ROC-AUC | Precision | Recall | Confusion (TN, FP, FN, TP) |
+|---|---|---|---|---|---|
+| Old method: train = test (do not use) | 300 (23) | 1.000 | 1.000 | 1.000 | 277, 0, 0, 23 |
+| **Stratified 75/25 holdout** | **75 (6)** | **1.000** | **1.000** | **0.833** | **69, 0, 1, 5** |
+| The seed's own rule, same test set | 75 (6) | 1.000 | 1.000 | 1.000 | 69, 0, 0, 6 |
+| Without temperature and vibration | 75 (6) | 0.949 | 0.333 | 0.167 | 67, 2, 5, 1 |
+| Two whole assets held out for test | 120 (12) | 0.985 | 1.000 | 0.500 | 108, 0, 6, 6 |
 
-## 4. Destaque de Engenharia / "The Hard Part"
+How to read it:
 
-O ponto mais interessante é o **pipeline ETL com Pandas que é idempotente e alimenta diretamente a camada de ML**. Ele extrai os eventos brutos, agrega por ativo, persiste métricas derivadas e gera alertas por limiar — tudo recomputável sem duplicar dados:
+- **The high number says nothing about the real world.** The label is a rule over two of
+  the features, and the rule alone scores 100%. What the holdout shows is that the Random
+  Forest rediscovers the rule on readings it has not seen (it missed 1 of 6 failures).
+- **The test set has only 6 failures.** One hit more or less moves recall by 17 points.
+  The confidence interval is wide and the number should not be quoted without this context.
+- **Without the two rule features, recall drops to 0.167.** AUC stays high (0.949) because
+  the degrading assets also have higher pressure in the generator: the model separates the
+  assets, not the moment of failure.
+- **With whole assets held out, recall drops to 0.500.** A new asset is harder than new
+  readings from a known asset.
+- **The label is the current state, not a future failure.** To become a real prediction,
+  the label would have to look ahead (for example: "was there a `down` in the next 24 h?"),
+  and the data would have to be real.
 
-```python
-# backend/app/etl/pipeline.py  (trecho)
-def run_etl(db: Session) -> dict:
-    df = _events_to_dataframe(db)          # EXTRACT: eventos -> DataFrame
-    if df.empty:
-        return {"processed_events": 0, "metrics": 0, "alerts": 0}
+Feature importance in the final model: temperature 0.573, vibration 0.238, pressure 0.153,
+runtime hours 0.036. This also mirrors the generator's rule.
 
-    # TRANSFORM: agregações por ativo em uma única passagem
-    agg = (
-        df.groupby("asset_id")
-        .agg(
-            avg_temperature=("temperature", "mean"),
-            max_temperature=("temperature", "max"),
-            avg_vibration=("vibration", "mean"),
-            avg_pressure=("pressure", "mean"),
-            total_runtime=("runtime_hours", "max"),
-        )
-        .reset_index()
-    )
+## Running locally
 
-    # Idempotência: limpa o derivado antes de recomputar (sem duplicar histórico)
-    db.query(models.Metric).delete()
-    db.query(models.Alert).delete()
-
-    for _, row in agg.iterrows():
-        # LOAD: grava métricas + dispara alertas por limiar operacional
-        if row["max_temperature"] > THRESHOLDS["temperature"]:
-            db.add(models.Alert(asset_id=int(row["asset_id"]),
-                                severity="critical", source="threshold",
-                                message=f"Temperatura {row['max_temperature']:.1f}°C acima do limite."))
-    db.commit()
-```
-
-**Por que importa:** o ETL é determinístico e reprocessável (rodar duas vezes não corrompe nada), e as mesmas features agregadas servem de entrada para o Random Forest. Na prática, o modelo identificou a **temperatura como a variável de maior peso (≈0.57 de importância)** para o risco de falha — um insight acionável que sai direto do pipeline para o negócio.
-
----
-
-## 5. Insights e Valor de Negócio
-
-- **Para produto:** dashboard único com KPIs (uptime, alertas, temperatura média) substitui inspeção manual e planilhas; o botão de pipeline torna a análise sob demanda.
-- **Para negócio:** antecipar falha = trocar parada não planejada (cara) por manutenção programada (barata). Cada alerta `high_risk` é uma ordem de serviço preventiva.
-- **Para dados / IA:** a *feature importance* responde "o que mais leva esse ativo a falhar?". Hipóteses testáveis: limiar ideal de temperatura por tipo de ativo, correlação vibração × runtime, janela ótima de antecedência da predição.
-
----
-
-## 6. Instruções de Instalação e Uso
-
-### Opção A — Rápida (sem Docker, usa SQLite)
+### Without Docker (SQLite)
 
 ```bash
-# 1. Clone o repositório
-git clone https://github.com/seu-usuario/cortex-analytics-platform.git
-cd cortex-analytics-platform
-
-# 2. Backend
-cd backend
+git clone https://github.com/pethrus07/desafio-tecnico-dev-.git
+cd desafio-tecnico-dev-/backend
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-python seed.py                  # popula dados sintéticos de demonstração
-uvicorn app.main:app --reload   # API em http://localhost:8000  (docs em /docs)
+pip install -r requirements-dev.txt
+python seed.py                  # synthetic demo data (drops and recreates the database)
+uvicorn app.main:app --reload   # API at http://localhost:8000, docs at /docs
 
-# 3. Frontend (em outro terminal)
+# in another terminal
 cd ../frontend
 npm install
-npm run dev                     # dashboard em http://localhost:5173
+npm run dev                     # dashboard at http://localhost:5173
 ```
 
-### Opção B — Docker (PostgreSQL completo)
+### With Docker (PostgreSQL)
 
 ```bash
-cp .env.example .env
 docker compose up --build
-# frontend: http://localhost:5173  |  backend: http://localhost:8000
-# (rode o seed dentro do container do backend: docker compose exec backend python seed.py)
+docker compose exec backend python seed.py
+# frontend: http://localhost:5173 | backend: http://localhost:8000
 ```
 
-### Uso
+In the dashboard, the **"Rodar ETL + Modelos ML"** button (Portuguese UI: "Run ETL + ML
+models") runs the ETL and both models and fills KPIs, telemetry, predictions and alerts.
 
-1. Abra o dashboard em `http://localhost:5173`.
-2. Clique em **"Rodar ETL + Modelos ML"** — isso executa o pipeline ETL, treina o Isolation Forest (anomalias) e o Random Forest (risco de falha).
-3. Veja os KPIs, a telemetria dos sensores e o painel de predições preenchidos. Alertas aparecem no rodapé.
+## Tests and evaluation
 
----
-
-## 7. Roadmap / Próximos Passos
-
-- **V1 — Base** ✅ — estrutura, API REST, ETL, dashboard com KPIs e gráficos.
-- **V2 — Machine Learning** ✅ — Isolation Forest (anomalias) + Random Forest (predição de falha) com alertas automáticos.
-- **V3 — Tempo real** — ingestão e atualização via WebSocket, alertas em streaming.
-- **V4 — Observabilidade** — métricas Prometheus + dashboards Grafana.
-- **V5 — Escala** — ingestão via Kafka, deploy cloud, persistência de modelos versionados.
-- **Engenharia** — migrations com Alembic, testes (pytest + Vitest), CI/CD, code-splitting do bundle front.
-
----
-
-## Estrutura do Projeto
-
-```
-cortex-analytics-platform/
-├── backend/
-│   ├── app/
-│   │   ├── main.py            # app FastAPI + CORS + routers
-│   │   ├── database.py        # engine (Postgres/SQLite) + sessão
-│   │   ├── models.py          # Asset, Event, Metric, Alert, Prediction
-│   │   ├── schemas.py         # Pydantic
-│   │   ├── routers/           # events, metrics/etl, alerts, predictions(ML)
-│   │   ├── etl/pipeline.py    # ETL com Pandas
-│   │   └── ml/                # anomaly.py (IsolationForest) + failure_prediction.py (RandomForest)
-│   ├── seed.py                # dados sintéticos de demonstração
-│   ├── requirements.txt
-│   └── Dockerfile
-├── frontend/
-│   ├── src/
-│   │   ├── App.jsx            # dashboard
-│   │   ├── api.js             # camada de acesso à API
-│   │   └── components/        # KPICard, MetricsChart, AlertsPanel, PredictionsPanel
-│   └── Dockerfile
-├── docker-compose.yml
-├── .env.example
-└── README.md
+```bash
+cd backend
+python -m pytest     # 9 tests: seed, idempotent ETL, holdout and both models
+python avaliar.py    # the evaluation report in the table above
 ```
 
----
+Tests use in-memory SQLite and never touch the local database or Postgres. The front end
+has no tests.
 
-## Licença
+## Layout
 
-MIT — sinta-se livre para usar como base de estudo ou portfólio.
+```
+backend/
+  app/
+    main.py              FastAPI, CORS and routers
+    database.py          engine (Postgres or SQLite) and session
+    models.py            Asset, Event, Metric, Alert, Prediction
+    routers/             events, metrics/etl, alerts, predictions (ML)
+    etl/pipeline.py      idempotent Pandas ETL
+    ml/anomaly.py        Isolation Forest
+    ml/failure_prediction.py   Random Forest with holdout
+  seed.py                synthetic data generator
+  avaliar.py             failure risk model evaluation
+  tests/                 pytest
+frontend/
+  src/App.jsx            dashboard
+  src/components/        KPICard, MetricsChart, AlertsPanel, PredictionsPanel
+docker-compose.yml
+```
+
+Code comments and the UI are in Portuguese.
+
+## Architecture
+
+Use cases, process and C4 in [docs/arquitetura/](docs/arquitetura/README.md) (Portuguese).
+
+## Known limits
+
+- Synthetic data; the metric measures the method, not performance on a real plant.
+- No migrations: the schema comes from `create_all`, and the seed drops and recreates it.
+- The model is retrained on every request, nothing is persisted.
+- The ETL reads the whole events table; there is no time window.
+- The telemetry chart uses list position on the X axis and mixes assets.
+- CORS is open for development.
+- Never deployed to production.
+
+## Roadmap
+
+Not continued. Real time, observability and ingestion at scale were in the original plan
+and were not built.
+
+## License
+
+MIT, see [LICENSE](LICENSE).
