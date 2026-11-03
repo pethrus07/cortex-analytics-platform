@@ -1,6 +1,6 @@
-[English](README.md) | Português
-
 # Cortex Analytics Platform
+
+[English](README.md) · Português
 
 ![status](https://img.shields.io/badge/status-concluído%20(desafio%20técnico%2C%202026--06)-lightgrey)
 ![backend](https://img.shields.io/badge/backend-FastAPI-009688)
@@ -24,23 +24,6 @@ Telemetria de máquina costuma ficar espalhada, sem monitoramento central e sem 
 camada preditiva. A falha só aparece quando o equipamento já parou. O desafio pedia uma
 camada única que ingere a telemetria, calcula métricas operacionais, gera alertas e estima
 o risco de falha por ativo.
-
-## Stack
-
-| Camada | Escolha | Por quê |
-|---|---|---|
-| Front-end | React + Vite + TailwindCSS + Recharts | build rápido e série temporal sem reinventar gráfico |
-| Back-end | FastAPI (Python) | mesma linguagem do pipeline de dados; OpenAPI em `/docs` |
-| Banco | PostgreSQL (docker-compose) ou SQLite (padrão local) | SQLite deixa rodar sem Docker |
-| ETL | Pandas | agregação por ativo em uma passagem |
-| ML | scikit-learn: Isolation Forest + Random Forest | anomalia sem rótulo; risco com importância de features |
-| Infra | Docker + docker-compose | banco, API e front com um comando |
-
-```
-eventos brutos ──► ETL (Pandas) ──► banco ──► modelos de ML ──► dashboard
- (sensores)        agrega e grava   métricas   anomalia e risco   KPIs e gráficos
-                                    e alertas
-```
 
 ## Avaliação do modelo de risco de falha
 
@@ -82,7 +65,24 @@ Como ler:
 Importância das features no modelo final: temperatura 0,573, vibração 0,238, pressão 0,153,
 horas de operação 0,036. Isso também é reflexo da regra do gerador.
 
-## Como rodar localmente
+## Stack
+
+| Camada | Escolha | Por quê |
+|---|---|---|
+| Front-end | React + Vite + TailwindCSS + Recharts | build rápido e série temporal sem reinventar gráfico |
+| Back-end | FastAPI (Python) | mesma linguagem do pipeline de dados; OpenAPI em `/docs` |
+| Banco | PostgreSQL (docker-compose) ou SQLite (padrão local) | SQLite deixa rodar sem Docker |
+| ETL | Pandas | agregação por ativo em uma passagem |
+| ML | scikit-learn: Isolation Forest + Random Forest | anomalia sem rótulo; risco com importância de features |
+| Infra | Docker + docker-compose | banco, API e front com um comando |
+
+```
+eventos brutos ──► ETL (Pandas) ──► banco ──► modelos de ML ──► dashboard
+ (sensores)        agrega e grava   métricas   anomalia e risco   KPIs e gráficos
+                                    e alertas
+```
+
+## Rodar localmente
 
 ### Sem Docker (SQLite)
 
@@ -111,7 +111,7 @@ docker compose exec backend python seed.py
 No dashboard, o botão **"Rodar ETL + Modelos"** roda o ETL e os dois modelos e preenche
 KPIs, telemetria, predições e alertas.
 
-## Testes e avaliação
+## Testes
 
 ```bash
 cd backend
@@ -122,7 +122,7 @@ python avaliar.py    # o relatório de avaliação da tabela acima
 Os testes usam SQLite em memória e não tocam o banco local nem o Postgres. O front-end
 não tem testes.
 
-## Estrutura
+## Pastas
 
 ```
 backend/
@@ -147,7 +147,7 @@ docker-compose.yml
 
 Casos de uso, processo e C4 em [docs/arquitetura/](docs/arquitetura/README.md).
 
-## Limites conhecidos
+## Decisões e limites conhecidos
 
 - Dado sintético; a métrica mede o método, não o desempenho numa planta.
 - Sem migrations: o banco nasce de `create_all`, e o seed apaga e recria tudo.

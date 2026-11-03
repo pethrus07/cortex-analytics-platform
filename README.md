@@ -1,6 +1,6 @@
-English | [Português](README.pt-BR.md)
-
 # Cortex Analytics Platform
+
+English · [Português](README.pt-BR.md)
 
 ![status](https://img.shields.io/badge/status-completed%20(technical%20challenge%2C%202026--06)-lightgrey)
 ![backend](https://img.shields.io/badge/backend-FastAPI-009688)
@@ -24,23 +24,6 @@ Machine telemetry is often scattered, with no central monitoring and no predicti
 Failures are only noticed once the equipment has stopped. The challenge asked for a single
 layer that ingests telemetry, computes operational metrics, raises alerts and estimates
 failure risk per asset.
-
-## Stack
-
-| Layer | Choice | Why |
-|---|---|---|
-| Front end | React + Vite + TailwindCSS + Recharts | fast build, time series charts out of the box |
-| Back end | FastAPI (Python) | same language as the data pipeline; OpenAPI at `/docs` |
-| Database | PostgreSQL (docker-compose) or SQLite (local default) | SQLite runs without Docker |
-| ETL | Pandas | per-asset aggregation in one pass |
-| ML | scikit-learn: Isolation Forest + Random Forest | anomalies without labels; risk with feature importance |
-| Infra | Docker + docker-compose | database, API and front end with one command |
-
-```
-raw events ──► ETL (Pandas) ──► database ──► ML models ──► dashboard
- (sensors)     aggregate, load   metrics      anomaly, risk  KPIs and charts
-                                 and alerts
-```
 
 ## Failure risk model evaluation
 
@@ -82,7 +65,24 @@ How to read it:
 Feature importance in the final model: temperature 0.573, vibration 0.238, pressure 0.153,
 runtime hours 0.036. This also mirrors the generator's rule.
 
-## Running locally
+## Stack
+
+| Layer | Choice | Why |
+|---|---|---|
+| Front end | React + Vite + TailwindCSS + Recharts | fast build, time series charts out of the box |
+| Back end | FastAPI (Python) | same language as the data pipeline; OpenAPI at `/docs` |
+| Database | PostgreSQL (docker-compose) or SQLite (local default) | SQLite runs without Docker |
+| ETL | Pandas | per-asset aggregation in one pass |
+| ML | scikit-learn: Isolation Forest + Random Forest | anomalies without labels; risk with feature importance |
+| Infra | Docker + docker-compose | database, API and front end with one command |
+
+```
+raw events ──► ETL (Pandas) ──► database ──► ML models ──► dashboard
+ (sensors)     aggregate, load   metrics      anomaly, risk  KPIs and charts
+                                 and alerts
+```
+
+## Run locally
 
 ### Without Docker (SQLite)
 
@@ -111,7 +111,7 @@ docker compose exec backend python seed.py
 In the dashboard, the **"Rodar ETL + Modelos"** button (Portuguese UI: "Run ETL +
 models") runs the ETL and both models and fills KPIs, telemetry, predictions and alerts.
 
-## Tests and evaluation
+## Tests
 
 ```bash
 cd backend
@@ -122,7 +122,7 @@ python avaliar.py    # the evaluation report in the table above
 Tests use in-memory SQLite and never touch the local database or Postgres. The front end
 has no tests.
 
-## Layout
+## Folders
 
 ```
 backend/
@@ -149,7 +149,7 @@ Code comments and the UI are in Portuguese.
 
 Use cases, process and C4 in [docs/arquitetura/](docs/arquitetura/README.md) (Portuguese).
 
-## Known limits
+## Decisions and known limits
 
 - Synthetic data; the metric measures the method, not performance on a real plant.
 - No migrations: the schema comes from `create_all`, and the seed drops and recreates it.
